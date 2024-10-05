@@ -1,0 +1,49 @@
+trigger:
+  - none
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  azureSubscription: "armsvc-calcapp"
+  webAppName: "calc-frontend-test"
+  port: 8080
+
+steps:
+  - task: NodeTool@0
+    inputs:
+      versionSpec: "18.17.1"
+    displayName: "Install Node.js"
+
+  - script: |
+      npm install
+      npm run build
+    displayName: "npm install and build"
+    env:
+      PORT: $(port)
+      REACT_APP_API_URL: $(REACT_APP_API_URL)
+
+  - task: ArchiveFiles@2
+    inputs:
+      rootFolderOrFile: "$(System.DefaultWorkingDirectory)/build"
+      includeRootFolder: false
+      archiveType: "zip"
+      archiveFile: "$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip"
+      replaceExistingArchive: true
+    displayName: "Archive build files"
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: "$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip"
+      ArtifactName: "drop"
+      publishLocation: "container"
+    displayName: "Publish Artifact: drop"
+
+  - task: AzureWebApp@1
+    inputs:
+      azureSubscription: "$(azureSubscription)"
+      appType: "webApp"
+      appName: "$(webAppName)"
+      runtimeStack: "NODE|18-lts"
+      package: "$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip"
+    displayName: "Deploy to Azure Web App"
